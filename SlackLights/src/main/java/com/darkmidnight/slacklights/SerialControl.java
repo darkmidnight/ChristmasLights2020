@@ -2,7 +2,6 @@ package com.darkmidnight.slacklights;
 
 import com.fazecast.jSerialComm.SerialPort;
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -15,7 +14,8 @@ public class SerialControl extends Thread {
     private final SerialPort sp;
     private DataOutputStream dos;
     private PrintWriter pw;
-    private  BufferedReader br;
+    private BufferedReader br;
+    private boolean running = true;
 
     public SerialControl(String portDesc) {
         for (SerialPort s : SerialPort.getCommPorts()) {
@@ -28,31 +28,27 @@ public class SerialControl extends Thread {
         sp.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 0, 0);
         dos = new DataOutputStream(sp.getOutputStream());
         br = new BufferedReader(new InputStreamReader(sp.getInputStream()));
-        
+
     }
 
     @Override
     public void run() {
-        try {
-            String aLine = "";
-            while ((aLine = br.readLine()) != null) {
-                System.out.println("RESPONSE: "+aLine);
+        while (running) {
+            try {
+                String aLine = "";
+                while ((aLine = br.readLine()) != null) {
+                    System.out.println("RESPONSE: " + aLine);
+                    if (aLine.equals("READY")) {
+                        Main.setReady(true);
+                    } else if (aLine.equals("WORKING")) {
+                        Main.setReady(false);
+                    }
+                }
+            } catch (IOException ex) {
+                System.out.println("ERR " + ex.getMessage());
             }
-        } catch (IOException ex) {
-            System.out.println("ERR "+ex.getMessage());
         }
-    }
-    
 
-    public void send(int idx, int r, int g, int b) throws IOException {
-        if (!DataSingleton.getSingleton().isIsBlocked()) {
-            DataSingleton.getSingleton().setIsBlocked(true);
-            String s = idx + "," + g + "," + r + "," + b + "!";
-            System.out.println(s);
-            dos.write(s.getBytes());
-            dos.flush();
-        }
-        DataSingleton.getSingleton().setIsBlocked(false);
     }
 
     /**
@@ -69,11 +65,21 @@ public class SerialControl extends Thread {
         return aList;
     }
 
-    void send(String params) throws IOException {
-        dos.write((params+"\n").getBytes());
-    }
-    void flush() throws IOException {
+    void send(byte[] bytes) throws IOException {
+        if (!Main.isReady()) {
+            System.out.println("BLocked - not ready");
+            return;
+        }
+        Main.setReady(false);
+        dos.write(bytes);
         dos.flush();
+        while (!Main.isReady()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
+            }
+        }
     }
 
 }

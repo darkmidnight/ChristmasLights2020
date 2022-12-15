@@ -7,82 +7,65 @@ PololuLedStrip<12> ledStrip;
 rgb_color colors[LED_COUNT];
 
 uint16_t ledIndex = 0;
-String inData;
+
+byte inBytes[4];
 
 void setup() {
   Serial.begin(9600);
+  Serial.setTimeout(1000 * 60 * 5);
 }
 
 void loop() {
-  while (Serial.available() > 0) {
-    inData = Serial.readStringUntil('\n');
-    Serial.print(inData);
-
-    if (inData.length() == 100) {
-      for (ledIndex = 0; ledIndex < 100; ledIndex++) {
-        rgb_color color = getColor(inData.charAt(ledIndex));
-        colors[ledIndex] = color;
+  int retVal = Serial.readBytes(inBytes, 4);
+  if (retVal == 4) {
+    if (inBytes[0] == 0) {
+      for (int i = 0; i < 100; i++) {  //All
+        rgb_color color;
+        color.red = inBytes[1];
+        color.green = inBytes[2];
+        color.blue = inBytes[3];
+        colors[i] = color;
       }
-      ledStrip.write(colors, LED_COUNT);
+    } else if (inBytes[0] == 101) {  //Top
+      for (int i = 50; i < 100; i++) {
+        rgb_color color;
+        color.red = inBytes[1];
+        color.green = inBytes[2];
+        color.blue = inBytes[3];
+        colors[i] = color;
+      }
+    } else if (inBytes[0] == 102) {  //Bottom
+      for (int i = 0; i < 50; i++) {
+        rgb_color color;
+        color.red = inBytes[1];
+        color.green = inBytes[2];
+        color.blue = inBytes[3];
+        colors[i] = color;
+      }
+    } else if (inBytes[0] == 103) {  //Odd
+      for (int i = 0; i < 100; i = i + 2) {
+        rgb_color color;
+        color.red = inBytes[1];
+        color.green = inBytes[2];
+        color.blue = inBytes[3];
+        colors[i] = color;
+      }
+    } else if (inBytes[0] == 104) {  //Even
+      for (int i = 1; i < 100; i = i + 2) {
+        rgb_color color;
+        color.red = inBytes[1];
+        color.green = inBytes[2];
+        color.blue = inBytes[3];
+        colors[i] = color;
+      }
+    } else if (inBytes[0] > 0 && inBytes[0] < 101) { //Specific
+      rgb_color color;
+      color.red = inBytes[1];
+      color.green = inBytes[2];
+      color.blue = inBytes[3];
+      colors[inBytes[0]] = color;
     }
   }
-  inData = "";
-  delay(20);
-}
-// For reasons unknown the red and green channels appear to be back to front on the LEDs I have, so are switched here.
-rgb_color getColor(char aChar) {
-  rgb_color color;
-  switch (aChar) {
-    case '0':
-      color.red = 0;
-      color.green = 255;
-      color.blue = 0;
-      break;
-    case '1':
-      color.red = 255;
-      color.green = 0;
-      color.blue = 0;
-      break;
-    case '2':
-      color.red = 0;
-      color.green = 0;
-      color.blue = 255;
-      break;
-    case '3':
-      color.red = 255;
-      color.green = 255;
-      color.blue = 255;
-      break;
-    case '4':
-      color.red = 255;
-      color.green = 255;
-      color.blue = 0;
-      break;
-    case '5':
-      color.red = 0;
-      color.green = 255;
-      color.blue = 255;
-      break;
-    case '6':
-      color.red = 200;
-      color.green = 255;
-      color.blue = 0;
-      break;
-    case '7':
-      color.red = 175;
-      color.green = 255;
-      color.blue = 175;
-      break;
-    case '8':
-      color.red = 255;
-      color.green = 0;
-      color.blue = 255;
-      break;
-    case '9':
-      color.red = 0;
-      color.green = 0;
-      color.blue = 0;
-      break;
-  }
-  return color;
+  ledStrip.write(colors, LED_COUNT);
+  Serial.println("READY");
 }
